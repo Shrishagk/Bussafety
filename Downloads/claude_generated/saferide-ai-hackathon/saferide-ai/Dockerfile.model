@@ -1,0 +1,16 @@
+# SafeRide AI — Model Service Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
+
+# TF is large; for hackathon we install the CPU-only version
+RUN pip install --no-cache-dir flask tensorflow-cpu numpy
+
+COPY model_service/ ./model_service/
+
+EXPOSE 5001
+ENV MODEL_PORT=5001
+
+CMD ["python", "model_service/app.py"]

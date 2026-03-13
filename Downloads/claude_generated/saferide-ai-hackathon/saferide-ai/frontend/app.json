@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "SafeRide AI",
+    "slug": "saferide-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#1A56DB"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.saferide.ai",
+      "config": {
+        "googleMapsApiKey": "{{GOOGLE_MAPS_API_KEY}}"
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "SafeRide AI needs your location to monitor trip safety.",
+        "NSLocationAlwaysUsageDescription": "SafeRide AI needs background location for continuous trip monitoring.",
+        "NSCameraUsageDescription": "SafeRide AI uses the camera to scan and verify bus number plates."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1A56DB"
+      },
+      "config": {
+        "googleMaps": {
+          "apiKey": "{{GOOGLE_MAPS_API_KEY}}"
+        }
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA"
+      ],
+      "package": "com.saferide.ai"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "SafeRide AI needs your location to monitor trip safety."
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "http://localhost:5000"
+    }
+  }
+}

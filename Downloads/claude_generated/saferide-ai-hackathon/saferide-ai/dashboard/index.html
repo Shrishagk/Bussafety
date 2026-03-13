@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SafeRide AI — Operator Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --primary:      #1A56DB;
+      --secondary:    #7E3AF2;
+      --risk-low:     #0E9F6E;
+      --risk-med:     #D97706;
+      --risk-high:    #E3702E;
+      --risk-crit:    #E02424;
+      --bg:           #F9FAFB;
+      --card:         #FFFFFF;
+      --text:         #111827;
+      --muted:        #6B7280;
+      --border:       #E5E7EB;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+    header { background: var(--card); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .logo { font-size: 20px; font-weight: 800; color: var(--primary); }
+    .header-right { display: flex; gap: 12px; align-items: center; }
+    .live-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--risk-low); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .badge { padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+    .main { max-width: 1280px; margin: 0 auto; padding: 24px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .grid-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .card { background: var(--card); border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.06); padding: 20px; }
+    .stat-card { border-top: 3px solid var(--primary); }
+    .stat-value { font-size: 36px; font-weight: 800; color: var(--primary); }
+    .stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    h2 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 16px; }
+    h3 { font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+    .alert-feed { max-height: 320px; overflow-y: auto; }
+    .alert-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .15s; border-radius: 6px; }
+    .alert-row:hover { background: #F3F4F6; }
+    .alert-icon { font-size: 20px; flex-shrink: 0; }
+    .alert-msg { font-size: 13px; font-weight: 600; }
+    .alert-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .risk-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 700; color: #fff; }
+    .trip-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .trip-table th { text-align: left; padding: 10px 12px; background: var(--bg); font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid var(--border); }
+    .trip-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    .trip-table tr:hover td { background: #F9FAFB; cursor: pointer; }
+    /* Heatmap mock */
+    #heatmap-canvas { width: 100%; height: 300px; border-radius: 8px; }
+    /* Modal */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: #fff; border-radius: 16px; max-width: 560px; width: 90%; padding: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+    .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+    .modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--muted); }
+    .event-log { max-height: 200px; overflow-y: auto; font-size: 12px; }
+    .event-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .refresh-note { font-size: 12px; color: var(--muted); text-align: right; margin-bottom: 8px; }
+    @media(max-width:768px){ .grid-4{grid-template-columns:repeat(2,1fr)} .grid-2,.grid-3{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="logo">🛡️ SafeRide AI</span>
+  <div class="header-right">
+    <div class="live-dot"></div>
+    <span style="font-size:13px;color:var(--muted)">Live</span>
+    <span class="badge" style="background:#EBF5FF;color:var(--primary)" id="as-of">–</span>
+    <button class="btn btn-primary" onclick="loadAll()">↺ Refresh</button>
+  </div>
+</header>
+
+<main class="main">
+  <!-- Summary stats -->
+  <div class="grid-4" id="stats-grid">
+    <div class="card stat-card"><div class="stat-value" id="stat-active">–</div><div class="stat-label">Active Trips</div></div>
+    <div class="card stat-card" style="border-top-color:var(--secondary)"><div class="stat-value" style="color:var(--secondary)" id="stat-fleet">–</div><div class="stat-label">Fleet Size</div></div>
+    <div class="card stat-card" style="border-top-color:var(--risk-high)"><div class="stat-value" style="color:var(--risk-high)" id="stat-alerts">–</div><div class="stat-label">Alerts Today</div></div>
+    <div class="card stat-card" style="border-top-color:var(--risk-med)"><div class="stat-value" style="color:var(--risk-med)" id="stat-risk">–</div><div class="stat-label">Avg Risk Score</div></div>
+  </div>
+
+  <div class="grid-3">
+    <!-- Live alerts -->
+    <div class="card">
+      <h2>🚨 Live Alerts</h2>
+      <div class="alert-feed" id="alert-feed">
+        <p style="color:var(--muted);font-size:13px">Loading alerts…</p>
+      </div>
+    </div>
+
+    <!-- Active trips sidebar -->
+    <div class="card">
+      <h2>🚌 Active Trips</h2>
+      <div id="active-trips-list">
+        <p style="color:var(--muted);font-size:13px">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Risk trend chart + heatmap -->
+  <div class="grid-2">
+    <div class="card">
+      <h2>📈 Risk Score Trend (mock 30min)</h2>
+      <canvas id="risk-chart" height="160"></canvas>
+    </div>
+    <div class="card">
+      <h2>🗺️ City Risk Heatmap</h2>
+      <canvas id="heatmap-canvas" height="260"></canvas>
+      <p style="font-size:11px;color:var(--muted);margin-top:8px">🔴 High  🟡 Medium  🟢 Low — Mocked Bengaluru hotspots</p>
+    </div>
+  </div>
+
+  <!-- All trips table -->
+  <div class="card">
+    <h2>📋 All Trips (click for detail)</h2>
+    <p class="refresh-note">Auto-refresh every 10s</p>
+    <div style="overflow-x:auto">
+      <table class="trip-table" id="trips-table">
+        <thead><tr><th>Trip ID</th><th>Mode</th><th>Vehicle</th><th>Risk</th><th>Status</th><th>Started</th></tr></thead>
+        <tbody id="trips-tbody"><tr><td colspan="6" style="text-align:center;color:var(--muted)">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Trip detail modal -->
+<div class="modal-overlay" id="trip-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div>
+        <h2 id="modal-trip-id">Trip Detail</h2>
+        <div id="modal-risk-badge"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:13px" id="modal-meta"></div>
+    <h3 style="margin-bottom:8px">Event Log</h3>
+    <div class="event-log" id="modal-events"></div>
+    <div style="margin-top:16px;display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = localStorage.getItem("saferide_api") || "http://localhost:5000";
+
+const RISK_COLORS = { low:"#0E9F6E", medium:"#D97706", high:"#E3702E", critical:"#E02424" };
+function riskLevel(s){ return s<.3?"low":s<.6?"medium":s<.8?"high":"critical"; }
+function riskEmoji(l){ return {low:"🟢",medium:"🟡",high:"🟠",critical:"🔴"}[l]; }
+
+async function api(path){
+  try { return await fetch(`${API}${path}`).then(r=>r.json()); }
+  catch { return null; }
+}
+
+async function loadSummary(){
+  const d = await api("/api/dashboard/summary");
+  if(!d) return;
+  document.getElementById("stat-active").textContent  = d.active_trips;
+  document.getElementById("stat-fleet").textContent   = d.total_fleet;
+  document.getElementById("stat-alerts").textContent  = d.alerts_today;
+  document.getElementById("stat-risk").textContent    = Math.round((d.avg_risk??0)*100);
+  document.getElementById("as-of").textContent        = d.as_of?.slice(11,19)+" UTC";
+}
+
+async function loadAlerts(){
+  const d = await api("/api/dashboard/alerts");
+  const alerts = d?.alerts ?? [];
+  const feed = document.getElementById("alert-feed");
+  if(alerts.length===0){ feed.innerHTML='<p style="color:var(--muted);font-size:13px">✅ No active alerts</p>'; return; }
+  feed.innerHTML = alerts.slice(0,10).map(a=>`
+    <div class="alert-row" onclick="openTripModal('${a.trip_id}')">
+      <span class="alert-icon">${a.type?.includes("critical")?"🔴":"🟠"}</span>
+      <div>
+        <div class="alert-msg">${a.message}</div>
+        <div class="alert-meta">${a.trip_id} · ${a.timestamp?.slice(11,19)} · ${a.mode||""}</div>
+      </div>
+    </div>`).join("");
+}
+
+async function loadActiveTrips(){
+  const d = await api("/api/active_trips");
+  const trips = d?.trips ?? [];
+  const el = document.getElementById("active-trips-list");
+  if(trips.length===0){ el.innerHTML='<p style="color:var(--muted);font-size:13px">Start simulator to see live trips</p>'; return; }
+  el.innerHTML = trips.slice(0,8).map(t=>{
+    const lv = riskLevel(t.risk_score||0);
+    return `<div onclick="openTripModal('${t.trip_id}')" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
+      <div>
+        <div style="font-size:13px;font-weight:600">${t.trip_id}</div>
+        <div style="font-size:11px;color:var(--muted)">${t.mode?.toUpperCase()} · ${t.vehicle_id}</div>
+      </div>
+      <span class="risk-badge" style="background:${RISK_COLORS[lv]}">${riskEmoji(lv)} ${lv.toUpperCase()}</span>
+    </div>`;
+  }).join("");
+}
+
+async function loadTripsTable(){
+  const d = await api("/api/active_trips");
+  const trips = [...(d?.trips??[])];
+  const tbody = document.getElementById("trips-tbody");
+  if(!trips.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted)">No trips — run the simulator!</td></tr>'; return; }
+  tbody.innerHTML = trips.map(t=>{
+    const lv = riskLevel(t.risk_score||0);
+    return `<tr onclick="openTripModal('${t.trip_id}')">
+      <td><strong>${t.trip_id}</strong></td>
+      <td>${t.mode?.toUpperCase()}</td>
+      <td>${t.vehicle_id}</td>
+      <td><span class="risk-badge" style="background:${RISK_COLORS[lv]}">${riskEmoji(lv)} ${lv}</span></td>
+      <td><span style="color:${t.status==='active'?'var(--risk-low)':'var(--muted)'}">${t.status}</span></td>
+      <td>${t.started_at?.slice(11,19)}</td>
+    </tr>`;
+  }).join("");
+}
+
+let _riskChart = null;
+function drawRiskChart(){
+  const ctx = document.getElementById("risk-chart").getContext("2d");
+  const labels = Array.from({length:30},(_,i)=>`-${29-i}m`);
+  const data   = labels.map(()=>+(Math.random()*0.7+0.05).toFixed(2));
+  if(_riskChart) _riskChart.destroy();
+  _riskChart = new Chart(ctx, {
+    type:"line",
+    data:{ labels, datasets:[{ label:"Avg Risk Score", data, borderColor:"#1A56DB", backgroundColor:"rgba(26,86,219,0.08)", tension:.4, pointRadius:2, fill:true }]},
+    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{min:0,max:1,ticks:{stepSize:.2}}, x:{ticks:{maxTicksLimit:6}} } }
+  });
+}
+
+let _hmChart = null;
+async function drawHeatmap(){
+  const ctx = document.getElementById("heatmap-canvas").getContext("2d");
+  const d = await api("/api/dashboard/heatmap");
+  const cells = d?.cells ?? [];
+  // Render as bubble chart approximating a map
+  if(_hmChart) _hmChart.destroy();
+  _hmChart = new Chart(ctx, {
+    type:"bubble",
+    data:{ datasets:[{
+      label:"Risk Hotspot",
+      data: cells.map(c=>({ x:(c.lng-77.52)/0.18*100, y:(c.lat-12.90)/0.18*100, r: c.weight*18 })),
+      backgroundColor: cells.map(c=> c.weight>.65?"rgba(220,38,38,0.55)":c.weight>.35?"rgba(245,158,11,0.45)":"rgba(16,185,129,0.4)"),
+      borderWidth: 0,
+    }]},
+    options:{ responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>`Risk: ${(cells[i.dataIndex]?.weight*100).toFixed(0)}%`}}}, scales:{ x:{display:false}, y:{display:false} } }
+  });
+}
+
+function openTripModal(tripId){
+  if(!tripId) return;
+  api(`/api/trip_status?trip_id=${tripId}`).then(t=>{
+    if(!t){ alert("Trip not found"); return; }
+    const lv = riskLevel(t.risk_score||0);
+    document.getElementById("modal-trip-id").textContent = t.trip_id;
+    document.getElementById("modal-risk-badge").innerHTML = `<span class="risk-badge" style="background:${RISK_COLORS[lv]};margin-top:6px">${riskEmoji(lv)} ${lv.toUpperCase()} (${Math.round(t.risk_score*100)})</span>`;
+    document.getElementById("modal-meta").innerHTML = `
+      <div><b>Mode</b><br>${t.mode}</div><div><b>Vehicle</b><br>${t.vehicle_id}</div>
+      <div><b>Status</b><br>${t.status}</div><div><b>Started</b><br>${t.started_at?.slice(11,19)}</div>
+      <div><b>Last GPS</b><br>${t.last_gps?.lat?.toFixed(4)}, ${t.last_gps?.lng?.toFixed(4)}</div>
+      <div><b>Tags</b><br>${(t.risk_reason_tags||[]).join(", ")||"—"}</div>`;
+    const events = t.events ?? [];
+    document.getElementById("modal-events").innerHTML = events.length
+      ? events.map(e=>`<div class="event-row"><span>${e.timestamp?.slice(11,19)}</span><strong>${e.type}</strong><span>${e.message}</span></div>`).join("")
+      : '<p style="color:var(--muted);font-size:12px">No events logged</p>';
+    document.getElementById("trip-modal").classList.add("open");
+  });
+}
+function closeModal(){ document.getElementById("trip-modal").classList.remove("open"); }
+
+async function loadAll(){
+  await Promise.all([loadSummary(), loadAlerts(), loadActiveTrips(), loadTripsTable()]);
+  drawRiskChart();
+  drawHeatmap();
+}
+
+loadAll();
+setInterval(loadAll, 10000);  // auto-refresh every 10s
+</script>
+</body>
+</html>
